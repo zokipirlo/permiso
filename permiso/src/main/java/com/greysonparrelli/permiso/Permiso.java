@@ -49,6 +49,16 @@ public class Permiso {
      */
     private static Permiso sInstance = new Permiso();
 
+    /**
+     * Will store active request codes that will be delivered in {@link #onResumeFragments()}}
+     */
+    private ArrayList<Integer> mActiveRequestedCodes;
+
+    /**
+     * Marks that active {@link Activity} is in {@link Activity#onPause()} state.
+     */
+    private boolean mInPause = false;
+
 
     // =====================================================================
     // Creation
@@ -66,6 +76,7 @@ public class Permiso {
      */
     private Permiso() {
         mCodesToRequests = new HashMap<>();
+        mActiveRequestedCodes = new ArrayList<>(1);
     }
 
 
@@ -74,7 +85,7 @@ public class Permiso {
     // =====================================================================
 
     /**
-     * This method should be invoked in the {@link Activity#onCreate(Bundle)} in every activity that requests
+     * This method should be invoked in the {@link Activity#onCreate(Bundle)} and {@link Activity#onResume()} in every activity that requests
      * permissions. Even if you don't want to use Permiso in your current activity, you should call this method
      * with a null activity to prevent leaking the previously-set activity.
      * <p>
@@ -83,6 +94,27 @@ public class Permiso {
      */
     public void setActivity(@NonNull Activity activity) {
         mActivity = new WeakReference<>(activity);
+        mInPause = false;
+    }
+
+    /**
+     * This method will call {@link IOnPermissionResult#onPermissionResult(ResultSet)}.
+     */
+    public void onResumeFragments() {
+        mInPause = false;
+        for (int requestCode : mActiveRequestedCodes) {
+            RequestData requestData = mCodesToRequests.get(requestCode);
+            requestData.onResultListener.onPermissionResult(requestData.resultSet);
+            mCodesToRequests.remove(requestCode);
+        }
+        mActiveRequestedCodes.clear();
+    }
+
+    /**
+     * This method should be invoked in the {@link Activity#onPause()}
+     */
+    public void onPause() {
+        mInPause = true;
     }
 
     /**
@@ -156,8 +188,12 @@ public class Permiso {
         if (mCodesToRequests.containsKey(requestCode)) {
             RequestData requestData = mCodesToRequests.get(requestCode);
             requestData.resultSet.parsePermissionResults(permissions, grantResults);
-            requestData.onResultListener.onPermissionResult(requestData.resultSet);
-            mCodesToRequests.remove(requestCode);
+            if (mInPause) {
+                mActiveRequestedCodes.add(requestCode);
+            } else {
+                requestData.onResultListener.onPermissionResult(requestData.resultSet);
+                mCodesToRequests.remove(requestCode);
+            }
         } else {
             Log.w(TAG, "onRequestPermissionResult() was given an unrecognized request code.");
         }

@@ -29,6 +29,18 @@ public class PermisoActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResumeFragments() {
+        super.onResumeFragments();
+        Permiso.getInstance().onResumeFragments();
+    }
+
+    @Override
+    protected void onPause() {
+        Permiso.getInstance().onPause();
+        super.onPause();
+    }
+
+    @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         Permiso.getInstance().onRequestPermissionResult(requestCode, permissions, grantResults);
